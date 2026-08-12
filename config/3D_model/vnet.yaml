@@ -1,0 +1,33 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_3d_vnet
+
+model:
+  name: vnet
+  type: 3D
+  backbone: vnet3d_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+  args_3d:
+    __replace__: true
+    n_filters: 16
+    normalization: instancenorm
+    has_dropout: false
+    has_residual: false
+
+training:
+  epochs: 60
+  batch_size_3d: 4
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  batch_size_3d: 1
+  compute_surface_metrics: true
+

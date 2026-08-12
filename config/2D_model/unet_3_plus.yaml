@@ -1,0 +1,36 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_2d_unet_3_plus
+
+model:
+  name: unet_3_plus
+  type: 2D
+  backbone: unet3plus_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+    # Co the doi feature_scale, deep_supervision, cgm.
+    feature_scale: 4
+    is_deconv: true
+    is_batchnorm: true
+    # Dong bo train/visualize: binary segmentation dung head 2 channel.
+    # Visualize tu checkpoint cu se tu doc shape head trong checkpoint neu can.
+    internal_num_classes: 2
+    deep_supervision: false
+    cgm: false
+
+training:
+  epochs: 60
+  batch_size: 8
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  slice_batch_size: 8

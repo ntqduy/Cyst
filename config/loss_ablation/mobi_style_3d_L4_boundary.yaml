@@ -1,0 +1,15 @@
+extends: ../Proposal/mobi_style_3d.yaml
+
+project:
+  # Output: outputs/loss_ablation/L4_boundary/mobi_style_3d/..._epoch60_L4
+  output_root: outputs/loss_ablation/L4_boundary
+  output_suffix: L4
+
+training:
+  # L4 = Dice + Focal Tversky + Boundary.
+  loss:
+    name: dice_focal_tversky_boundary
+    alpha: 0.3
+    beta: 0.7
+    gamma: 1.33
+    lambda_boundary: 0.2

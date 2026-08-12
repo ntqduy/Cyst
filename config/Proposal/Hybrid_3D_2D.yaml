@@ -1,0 +1,156 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_proposal_hybrid_3d_2d
+
+# Base config for the 3-step proposal:
+#   1. Train FullUNet3Plus2D.
+#   2. Train FullUNet3D.
+#   3. Train Hybrid3D2DUNet3Plus from Stage 1/2 pretrained weights.
+#
+# Prefer running the stage configs:
+#   config/Proposal/Hybrid_3D_2D_stage1_2d.yaml
+#   config/Proposal/Hybrid_3D_2D_stage2_3d.yaml
+#   config/Proposal/Hybrid_3D_2D_stage3_hybrid.yaml
+#
+# Or use scripts in:
+#   scripts/Hybrid_3D_2D/
+experiment:
+  name: Proposal_hybrid_3D_2D
+  # Default stage for this base file. Stage configs override this value.
+  stage: train_2d
+  use_position_encoder: false
+
+paths:
+  # Unified proposal layout. Position encoder only affects the 2D/hybrid branch;
+  # the 3D stage is shared so it can be trained once and reused by both variants.
+  output_root: outputs/Proposal_hybrid_3D_2D
+  stage1_2d_dir: outputs/Proposal_hybrid_3D_2D/1_2D_model
+  stage2_3d_dir: outputs/Proposal_hybrid_3D_2D/2_3D_model
+  stage3_hybrid_dir: outputs/Proposal_hybrid_3D_2D/3_hybrid_model
+
+pretrain:
+  auto_train_missing_pretrain: false
+  # "auto" resolves to:
+  #   2D: outputs/Proposal_hybrid_3D_2D/1_2D_model/{pos|no_pos}/{mode}/checkpoints/best_model.pth
+  #   3D: outputs/Proposal_hybrid_3D_2D/2_3D_model/checkpoints/best_model.pth
+  stage1_2d_ckpt: auto
+  stage2_3d_ckpt: auto
+  stage2_3d_decoder_ckpt: auto
+  load_2d_encoder_from_stage1: true
+  load_3d_encoder_from_stage2: true
+  load_3d_decoder_from_stage2: true
+  strict: false
+  freeze_2d_encoder: false
+  freeze_3d_encoder: false
+  freeze_3d_decoder: false
+
+model:
+  # Runner maps experiment.stage to:
+  #   train_2d -> FullUNet3Plus2D
+  #   train_3d -> FullUNet3D
+  #   hybrid   -> Hybrid3D2DUNet3Plus
+  name: proposal_hybrid_3d_2d
+  type: 3D
+  backbone: hybrid_unet3plus_2d3d_encoder
+  in_channels: 1
+  num_classes: 2
+  base_channels: 16
+
+  encoder_2d:
+    type: unet3plus_2d
+    channels: [16, 32, 64, 128, 256]
+
+  encoder_3d:
+    type: unet3d
+    channels: [16, 32, 64, 128, 256]
+
+  position_encoder:
+    enabled: false
+    type: embedding
+    embedding_dim: 32
+    max_positions: 512
+    fuse_type: add
+
+  slice_selection:
+    mode: uniform
+    # Number of selected 2D slice samples per volume for Stage 1 and hybrid.
+    num_slices: 15
+    seed: 42
+    proposal:
+      num_groups: 15
+      samples_per_group: 1
+      similarity_metric: mad
+
+  fusion:
+    type: concat_conv
+
+  decoder:
+    type: unet3plus_3d
+    deep_supervision: false
+
+  # Clear inherited baseline model args; runner fills stage-specific args
+  # from the structured blocks above.
+  args:
+    __replace__: true
+  args_2d:
+    __replace__: true
+  args_3d:
+    __replace__: true
+
+slice_2d:
+  # Spatial extraction only. Sample count is model.slice_selection.num_slices.
+  # The 2D input channel count comes from model.in_channels.
+  axis: 2
+  position: center
+
+stage1_2d:
+  model_name: FullUNet3Plus2D
+  output_dir: auto
+  save_best: true
+  export_metrics: true
+  export_predictions: true
+
+stage2_3d:
+  model_name: FullUNet3D
+  output_dir: auto
+  save_best: true
+  export_metrics: true
+  export_predictions: true
+
+stage3_hybrid:
+  model_name: Hybrid3D2DUNet3Plus
+  output_dir: auto
+  load_pretrained_2d_encoder: true
+  load_pretrained_3d_encoder: true
+  load_pretrained_3d_decoder: true
+  train_full_model: true
+  export_metrics: true
+  export_predictions: true
+
+training:
+  epochs: 60
+  batch_size: 8
+  batch_size_3d: 4
+  image_size: [256, 256, 64]
+  depth_axis: 2
+  volume_layout: DHW
+  loss: ce_dice
+  amp: false
+
+early_stopping:
+  enabled: true
+  patience: 10
+  min_delta: 0.0001
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  batch_size_3d: 1
+  slice_batch_size: 8
+  compute_surface_metrics: true
+  compute_flops: true
+  fail_on_flops_error: false
+
+visualization:
+  slice_axis: 0

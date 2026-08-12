@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$ROOT_DIR"
+
+export CYST_PRETRAIN_DIR="${CYST_PRETRAIN_DIR:-$ROOT_DIR/pretrain}"
+CONFIG="${CONFIG:-config/Unet_3_plus_Slice/unet_3_plus_slice_proposal.yaml}"
+
+"${PYTHON:-python}" main.py --config "$CONFIG"

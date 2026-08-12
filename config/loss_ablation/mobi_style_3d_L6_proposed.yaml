@@ -1,0 +1,17 @@
+extends: ../Proposal/mobi_style_3d.yaml
+
+project:
+  # Output: outputs/loss_ablation/L6_proposed/mobi_style_3d/..._epoch60_L6
+  output_root: outputs/loss_ablation/L6_proposed
+  output_suffix: L6
+
+training:
+  # L6 = Dice + Focal Tversky + Boundary + Encoder Attention Supervision.
+  loss:
+    name: proposed
+    alpha: 0.3
+    beta: 0.7
+    gamma: 1.33
+    lambda_boundary: 0.2
+    lambda_attention: 0.1
+    attention_weights: auto

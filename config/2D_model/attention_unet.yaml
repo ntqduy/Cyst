@@ -1,0 +1,29 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_2d_attention_unet
+
+model:
+  name: att_unet
+  type: 2D
+  backbone: attention_unet_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+    feature_channels: [32, 64, 128, 256, 512]
+
+training:
+  epochs: 60
+  batch_size: 8
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  slice_batch_size: 8
+

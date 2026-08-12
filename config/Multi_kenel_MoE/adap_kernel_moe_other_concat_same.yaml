@@ -1,0 +1,9 @@
+extends: adap_kernel_moe_other_base.yaml
+
+project:
+  output_name: adap_kernel_moe_other_concat_same_top2_d1-2-3-6-8-12_main3x3
+
+model:
+  args_3d:
+    moe_routed_fusion: concat_1x1
+    decoder_fusion: same_scale

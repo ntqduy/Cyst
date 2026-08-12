@@ -1,0 +1,199 @@
+project:
+  name: cyst_segmentation
+  output_root: outputs
+
+seed: 42
+
+dataset:
+  name: cyst
+  root: data
+  # train_list/val_list chi dung khi k_fold.enabled=false.
+  train_list: train_new.txt
+  val_list: val_new.txt
+  # Dung cho k-fold: chi file nay duoc chia train/val.
+  all_train_list: all_train.txt
+  # Test doc lap, khong duoc dua vao k-fold train/val.
+  test_list: test.txt
+  image_key: image_path
+  mask_key: mask_path
+  num_classes: 2
+  binarize_masks: true
+  intensity_normalization: foreground_zscore
+
+# Base config dung chung cho dataset, train, eval, visualization.
+# De train tung model, dung config rieng trong:
+#   config/2D_model/*.yaml
+#   config/3D_model/*.yaml
+# Moi file model rieng co comment cac tham so nen thay doi.
+model:
+  # Default smoke config. Nen train bang config/2D_model hoac config/3D_model.
+  name: unet
+  type: 2D
+  backbone: unet_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    feature_channels: [32, 64, 128, 256, 512]
+    normalization: batchnorm
+    dropout: 0.0
+  # Args 3D fallback. De train tung model 3D gon hon, dung config rieng:
+  #   config/3D_model/unet3d.yaml
+  #   config/3D_model/vnet.yaml
+  #   config/3D_model/unetr.yaml
+  #   config/3D_model/nnunet.yaml
+  args_3d:
+    feature_channels: [16, 32, 64, 128, 256]
+    n_filters: 16
+    normalization: instancenorm
+    has_dropout: false
+    has_residual: false
+    embed_dim: 384
+    patch_size: 16
+    num_heads: 6
+    dropout: 0.1
+
+# slice_2d dung de tao sample train/visualization cho model 2D.
+# Neu evaluation.evaluate_2d_as_volume=true, validation/test van chay tat ca
+# slice cua moi case va stack lai thanh volume truoc khi tinh metric.
+# Cac gia tri ben duoi duoc dua vao ten output:
+# outputs/<model>/pos_<position>_sam_<strategy>_spv<samples>_sl<num_slices>_ax<axis>/<encoder>_epochN
+slice_2d:
+  # So slice lam channel dau vao cho moi sample 2D.
+  # num_slices=1: input [1,H,W], predict mask cho slice do.
+  # num_slices=3: input [3,H,W] gom [z-1,z,z+1], predict mask cho slice giua z.
+  num_slices: 1
+  # Truc cat slice tu volume [H,W,D]. axis=2 thuong la truc D/depth.
+  axis: 2
+  # Dung khi sampling_strategy=center hoac fixed.
+  # Co the la center/first/last, index so nguyen, ti le 0.0-1.0,
+  # hoac list vi du [0.25, 0.5, 0.75] neu sampling_strategy=fixed.
+  position: center
+  # Cac cach lay slice khi train model 2D:
+  #   center: lay 1 slice o position, mac dinh slice giua volume.
+  #   uniform: lay samples_per_volume slice rai deu tu dau den cuoi volume.
+  #            Vi du D=40, samples_per_volume=5 -> gan [0,10,20,29,39].
+  #   random: lay ngau nhien samples_per_volume slice moi volume, co seed de lap lai.
+  #   fixed | positions: lay cac slice chi dinh trong position.
+  #   all: lay tat ca slice, samples_per_volume bi bo qua.
+  sampling_strategy: center
+  # So sample 2D lay tu moi volume voi uniform/random.
+  # Khong tac dung voi center/fixed/all.
+  samples_per_volume: 1
+
+training:
+  epochs: 60
+  batch_size: 8
+  # Khi model.type=3D, code tu dung batch_size_3d thay cho batch_size.
+  batch_size_3d: 4
+  lr: 0.001
+  optimizer: adamw
+  weight_decay: 0.0001
+  momentum: 0.9
+  scheduler: cosine
+  # Dung voi scheduler=cosine. Giu LR khong ve 0 o epoch cuoi.
+  min_lr: 0.000001
+  # Loss co the de dang cu: loss: ce_dice
+  # ce_dice duoc map ve Dice + BCE de tuong thich config cu.
+  # Loss ablation moi co the dung mapping:
+  # loss:
+  #   name: dice_bce                         # L1 = Dice + BCE
+  #   # name: dice_focal                     # L2 = Dice + Focal
+  #   # name: dice_focal_tversky             # L3 = Dice + Focal Tversky
+  #   # name: dice_focal_tversky_boundary    # L4 = L3 + Boundary
+  #   # name: dice_focal_tversky_attention   # L5 = L3 + Encoder Attention
+  #   # name: proposed                       # L6 = L3 + Boundary + Encoder Attention
+  #   # alpha: 0.3
+  #   # beta: 0.7
+  #   # gamma: 1.33
+  #   # lambda_boundary: 0.2
+  #   # lambda_attention: 0.1
+  #   # attention_weights: auto
+  # unet3plus_hybrid = BCE + IoU + MS-SSIM foreground, phu hop UNet 3+ CGM.
+  loss: ce_dice
+  hybrid_bce_weight: 1.0
+  hybrid_iou_weight: 1.0
+  hybrid_msssim_weight: 1.0
+  # Dung [H, W, D] de co the chuyen qua 3D khong loi.
+  # Model 2D chi dung 2 gia tri dau [H, W], bo qua D.
+  # Model 3D dung du ca 3 gia tri; neu bi OOM hay giam D xuong 32/48.
+  image_size: [256, 256, 64]
+  num_workers: 4
+  pin_memory: true
+  deterministic: true
+  show_progress: true
+  amp: false
+  save_best_by: val_dice
+
+augmentation:
+  enabled: true
+
+early_stopping:
+  enabled: true
+  patience: 20
+  min_delta: 0.0001
+
+k_fold:
+  # true: train k-fold tu dataset.all_train_list.
+  # Dung 3-fold de tai su dung split chung voi Proposal_Experiment:
+  # data/data_fold/all_train__test__k3__seed42__shuffle/
+  # dataset.test_list duoc giu doc lap va chi dung de final evaluation.
+  enabled: true
+  source_list: all_train.txt
+  num_folds: 3
+  shuffle: true
+  seed: 42
+  # true: neu folder split da ton tai thi dung lai, ke ca khi metadata cu/khong khop.
+  reuse_existing: true
+
+gpu:
+  use_cuda: true
+  ids: "0, 1"
+  multi_gpu: true
+
+evaluation:
+  batch_size: 1
+  batch_size_3d: 1
+  slice_batch_size: 8
+  # true: 2D model duoc danh gia nhu volume 3D bang cach predict tat ca slice,
+  #       stack thanh volume, roi tinh Dice/IoU va surface metrics tren volume
+  #       neu compute_surface_metrics=true.
+  # false: 2D model chi danh gia tren cac slice duoc tao boi slice_2d.
+  evaluate_2d_as_volume: true
+  compute_flops: true
+  # true: neu compute_flops loi thi dung training va bao loi ro rang.
+  # false: chi ghi "FLOPs unavailable" roi tiep tuc train.
+  fail_on_flops_error: true
+  compute_surface_metrics: true
+  save_predictions_per_split: 7
+
+visualization:
+  seed: 42
+  # per_source: trong outputs/.../predictions, moi noi/source (EMC/IU/NYU/...)
+  # lay samples_per_source sample de xem predict co khac nhau theo noi khong.
+  # fixed/random: lay save_predictions_per_split sample ngau nhien nhu cu.
+  selection: per_source
+  samples_per_source: 1
+  # true: luu bo visualize dong bo vao outputs/.../visualize:
+  # moi source/khu vuc lay samples_per_source sample, moi sample chi ve 1 slice.
+  save_per_source: true
+  # true: luu them cac ban do chan doan trong moi predictions/visualize split:
+  #   feature_mean: feature map trung binh theo channel.
+  #   encoder_activation: activation heatmap tung encoder stage.
+  #   skip_connection: feature skip truoc khi noi vao decoder neu model expose duoc.
+  #   gradcam_bottleneck, gradcam_decoder: Grad-CAM tai bottleneck/decoder.
+  #   logit: logits map foreground truoc sigmoid/softmax.
+  save_diagnostics: true
+  # Grad-CAM can ton nhieu VRAM vi can backward. Voi 3D, chi crop quanh slice
+  # dang visualize de tranh OOM; 1 = chi dung dung slice do.
+  gradcam_depth_window: 1
+  gradcam_slice_only: true
+  # false: neu Grad-CAM OOM thi warning va tiep tuc luu cac hinh con lai.
+  # true: dung chuong trinh neu Grad-CAM loi.
+  fail_on_gradcam_error: false
+  max_diagnostic_stages: 5
+  slice_axis: 2
+  # label_foreground/gt_foreground: chon slice co GT foreground nhieu nhat,
+  # co dinh theo data nen so sanh duoc giua cac model.
+  # foreground/auto: chon theo GT hoac prediction foreground, co the khac nhau giua model.
+  # center/first/last/0.5/index: chon slice co dinh theo vi tri.
+  slice_position: label_foreground

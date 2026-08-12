@@ -1,0 +1,17 @@
+extends: ../Proposal/mobi_style_3d.yaml
+
+project:
+  # Output: outputs/loss_ablation/L5_attention/mobi_style_3d/..._epoch60_L5
+  output_root: outputs/loss_ablation/L5_attention
+  output_suffix: L5
+
+training:
+  # L5 = Dice + Focal Tversky + Encoder Attention Supervision.
+  # attention_weights=auto: tang dan tu shallow den bottleneck va normalize tong = 1.
+  loss:
+    name: dice_focal_tversky_attention
+    alpha: 0.3
+    beta: 0.7
+    gamma: 1.33
+    lambda_attention: 0.1
+    attention_weights: auto

@@ -1,0 +1,34 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_3d_unetr
+
+model:
+  name: unetr
+  type: 3D
+  backbone: vit3d_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+  args_3d:
+    __replace__: true
+    embed_dim: 384
+    patch_size: 16
+    num_heads: 6
+    dropout: 0.1
+
+training:
+  epochs: 60
+  # UNETR 3D nang hon, batch 1 an toan hon.
+  batch_size_3d: 1
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  batch_size_3d: 1
+  compute_surface_metrics: true
+

@@ -1,0 +1,46 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_proposal_mobi_style_3d
+
+model:
+  name: UNet3D_Mobile
+  type: 3D
+  backbone: mobile_style_2d3d_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+  args_3d:
+    __replace__: true
+    # Proposal.mobi_style_3D.UNet3D_Mobile.
+    # Input tensor expected by the model: [B, C, D, H, W].
+    # Four values are accepted here; the model appends a bottleneck channel
+    # internally, so [16, 32, 64, 128] becomes [16, 32, 64, 128, 256].
+    feat_channels: [16, 32, 64, 128]
+    residual: conv
+
+training:
+  epochs: 60
+  # batch_size_3d=2 se chia thanh 1 volume/GPU khi multi_gpu=true va thay du 2 GPU.
+  batch_size_3d: 2
+  lr: 0.0005
+  grad_clip_norm: 1.0
+  image_size: [256, 256, 64]
+  # NIfTI goc doc theo [H, W, D], con Conv3D proposal mong [D, H, W].
+  depth_axis: 2
+  volume_layout: DHW
+  loss: ce_dice
+  # AMP lam logits cua mobi_style_3d de tran thanh Inf/NaN tren mot so batch.
+  amp: false
+
+k_fold:
+  enabled: false
+
+evaluation:
+  batch_size_3d: 1
+  compute_surface_metrics: true
+
+visualization:
+  # Sau khi volume_layout=DHW, truc depth/slice la axis 0.
+  slice_axis: 0

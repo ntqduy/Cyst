@@ -1,0 +1,14 @@
+extends: ../Proposal/mobi_style_3d.yaml
+
+project:
+  # Output: outputs/loss_ablation/L3_dice_focal_tversky/mobi_style_3d/..._epoch60_L3
+  output_root: outputs/loss_ablation/L3_dice_focal_tversky
+  output_suffix: L3
+
+training:
+  # L3 = Dice + Focal Tversky.
+  loss:
+    name: dice_focal_tversky
+    alpha: 0.3
+    beta: 0.7
+    gamma: 1.33

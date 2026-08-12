@@ -1,0 +1,13 @@
+extends: ../Proposal/mobi_style_3d.yaml
+
+project:
+  # Output: outputs/loss_ablation/L1_dice_bce/mobi_style_3d/..._epoch60_L1
+  output_root: outputs/loss_ablation/L1_dice_bce
+  output_suffix: L1
+
+training:
+  # L1 = Dice + BCE.
+  # Cac che do khac: dice_focal, dice_focal_tversky,
+  # dice_focal_tversky_boundary, dice_focal_tversky_attention, proposed.
+  loss:
+    name: dice_bce

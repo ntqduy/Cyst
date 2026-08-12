@@ -1,0 +1,32 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_2d_nnunet
+
+model:
+  name: nnunet2d
+  type: 2D
+  backbone: nnunet2d_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+    # Co the doi feature_channels hoac dung base_channels thay the.
+    feature_channels: [32, 64, 128, 256, 320]
+    normalization: instancenorm
+    dropout: 0.0
+
+training:
+  epochs: 60
+  batch_size: 8
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  slice_batch_size: 8
+

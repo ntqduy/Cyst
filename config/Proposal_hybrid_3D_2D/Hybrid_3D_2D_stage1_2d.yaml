@@ -1,0 +1,4 @@
+extends: hybrid_3d_2d_base.yaml
+
+experiment:
+  stage: train_2d

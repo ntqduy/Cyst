@@ -1,0 +1,32 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_3d_unet
+
+model:
+  name: unet3d
+  type: 3D
+  backbone: unet3d_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+  args_3d:
+    __replace__: true
+    # Co the doi kich thuoc kenh neu OOM.
+    feature_channels: [16, 32, 64, 128, 256]
+    residual: conv
+
+training:
+  epochs: 60
+  batch_size_3d: 4
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  batch_size_3d: 1
+  compute_surface_metrics: true
+

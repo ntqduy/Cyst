@@ -1,0 +1,39 @@
+extends: Hybrid_3D_2D.yaml
+
+project:
+  name: cyst_proposal_hybrid_3d_2d_improve
+
+experiment:
+  name: Proposal_hybrid_3D_2D_improve
+  stage: hybrid
+
+paths:
+  # Reuse the original Stage 1/2 pretrained encoders by default.
+  output_root: outputs/Proposal_hybrid_3D_2D/Proposal_hybrid_3D_2D_improve
+  stage1_2d_dir: outputs/Proposal_hybrid_3D_2D/1_2D_model
+  stage2_3d_dir: outputs/Proposal_hybrid_3D_2D/2_3D_model
+  stage3_hybrid_dir: outputs/Proposal_hybrid_3D_2D/Proposal_hybrid_3D_2D_improve/3_hybrid_model
+
+model:
+  name: proposal_hybrid_3d_2d_improve
+  backbone: hybrid_unet3plus_2d3d_slice_inject_encoder
+  slice_selection:
+    mode: proposal
+    num_slices: 15
+    seed: 42
+    proposal:
+      num_groups: 15
+      samples_per_group: 1
+      similarity_metric: mad
+  fusion:
+    # Options: concat, add. Default/recommended: concat.
+    type: concat
+
+pretrain:
+  auto_train_missing_pretrain: false
+  stage1_2d_ckpt: auto
+  stage2_3d_ckpt: auto
+
+stage3_hybrid:
+  output_dir: auto
+  train_full_model: true

@@ -1,0 +1,37 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_2d_unet
+
+model:
+  name: unet
+  type: 2D
+  # Co the doi: unet_encoder, resnet50, resnet101, resnet152, mobi.
+  # unet_encoder train tu dau; resnet/mobi co ImageNet pretrained.
+  backbone: unet_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+    feature_channels: [32, 64, 128, 256, 512]
+    normalization: batchnorm
+    dropout: 0.0
+    # De dung pretrained: doi backbone sang resnet/mobi va set encoder_pretrained: true.
+    encoder_pretrained: false
+    encoder_weights: null
+
+training:
+  # Co the doi: epochs, batch_size, lr, loss, image_size.
+  epochs: 60
+  batch_size: 8
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  # true de chay 5-fold tu dataset.all_train_list.
+  enabled: false
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  slice_batch_size: 8

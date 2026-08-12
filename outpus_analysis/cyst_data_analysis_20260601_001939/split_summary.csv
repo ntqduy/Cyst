@@ -1,0 +1,4 @@
+split,total_samples,labeled_samples,unlabeled_samples,labeled_ratio,missing_images,missing_masks,shape_mismatch,errors,mean_positive_ratio,median_positive_ratio
+train_new,256,256,0,1.0,0,0,0,0,0.0009120744328287346,0.00033845604929323085
+val_new,28,28,0,1.0,0,0,0,0,0.0009202333068452326,0.0004891436688311689
+test,74,74,0,1.0,0,0,0,0,0.0010950661750424619,0.000323324492483428

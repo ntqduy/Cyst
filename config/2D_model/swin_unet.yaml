@@ -1,0 +1,36 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_2d_swin_unet
+
+model:
+  name: swin_unet
+  type: 2D
+  backbone: swin_transformer
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+    # Co the doi feature_size/heads/depths neu can nhe/nang hon.
+    feature_size: 24
+    depths: [2, 2, 2, 2]
+    num_heads: [3, 6, 12, 24]
+    use_checkpoint: false
+    drop_rate: 0.0
+    attn_drop_rate: 0.0
+    dropout_path_rate: 0.0
+
+training:
+  epochs: 60
+  batch_size: 8
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  slice_batch_size: 8
+

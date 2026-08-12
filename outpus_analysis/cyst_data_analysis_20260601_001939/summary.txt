@@ -1,0 +1,5 @@
+Output: outpus_analysis\cyst_data_analysis_20260601_001939
+
+train_new: total=256, labeled=256/256, unlabeled=0, shape_mismatch=0, errors=0, sources=AHN=9, CAD=64, EMC=24, IU=27, MCA=11, MCF=13, NU=60, NYU=48
+val_new: total=28, labeled=28/28, unlabeled=0, shape_mismatch=0, errors=0, sources=AHN=2, CAD=2, EMC=4, IU=1, MCA=1, MCF=2, NU=8, NYU=8
+test: total=74, labeled=74/74, unlabeled=0, shape_mismatch=0, errors=0, sources=AHN=3, CAD=17, EMC=7, IU=7, MCA=3, MCF=4, NU=18, NYU=15

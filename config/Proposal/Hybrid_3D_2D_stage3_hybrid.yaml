@@ -1,0 +1,13 @@
+extends: Hybrid_3D_2D.yaml
+
+experiment:
+  stage: hybrid
+
+pretrain:
+  auto_train_missing_pretrain: false
+  stage1_2d_ckpt: auto
+  stage2_3d_ckpt: auto
+
+stage3_hybrid:
+  output_dir: auto
+  train_full_model: true

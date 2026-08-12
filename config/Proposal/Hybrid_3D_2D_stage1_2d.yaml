@@ -1,0 +1,7 @@
+extends: Hybrid_3D_2D.yaml
+
+experiment:
+  stage: train_2d
+
+stage1_2d:
+  output_dir: auto

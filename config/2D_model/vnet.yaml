@@ -1,0 +1,32 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_2d_vnet
+
+model:
+  name: vnet
+  type: 2D
+  backbone: vnet_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+    base_channels: 16
+    normalization: batchnorm
+    has_dropout: false
+    has_residual: false
+
+training:
+  epochs: 60
+  batch_size: 8
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  slice_batch_size: 8
+

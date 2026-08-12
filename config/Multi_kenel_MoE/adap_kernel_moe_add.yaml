@@ -1,0 +1,61 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_adaptive_kernel_moe_add
+  output_root: outputs/Multi_kenel_MoE
+  # Output path: outputs/Multi_kenel_MoE/adaptive_kernel_moe_add/<output_name>
+  output_name: adap_kernel_moe_add_top2_noise01_shared3x3x3_sum
+
+model:
+  name: adaptive_kernel_moe_add
+  type: 3D
+  backbone: adaptive_kernel_moe_add_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+  args_3d:
+    __replace__: true
+    # Multi_kenel_MoE.adap_kernel_moe_add.UNetMoE.
+    # sum_1x1: expert_i -> Conv1x1 -> gate weight -> weighted sum.
+    # sum:     expert_i -> gate weight -> weighted sum, no extra Conv1x1.
+    feature_channels: [16, 32, 64, 128, 256]
+    residual: conv
+    moe_top_k: 2
+    moe_noisy_router: true
+    moe_router_noise_std: 0.1
+    moe_router_noise_epsilon: 0.01
+    moe_pre_conv: true
+    moe_pre_conv_kernel: [3, 3, 3]
+    moe_shared_expert: true
+    moe_shared_expert_kernel: [3, 3, 3]
+    moe_shared_expert_weight: 1.0
+    moe_routed_fusion: sum
+    moe_dispatch: sparse
+
+training:
+  epochs: 60
+  batch_size_3d: 4
+  lr: 0.0005
+  grad_clip_norm: 1.0
+  image_size: [256, 256, 64]
+  depth_axis: 2
+  volume_layout: DHW
+  loss:
+    name: ce_dice
+    moe_balance_weight: 0.01
+  amp: false
+  save_moe_router_heatmap: true
+  moe_router_heatmap_every: 1
+
+k_fold:
+  enabled: false
+
+evaluation:
+  batch_size_3d: 1
+  compute_surface_metrics: true
+
+visualization:
+  slice_axis: 0
+  gradcam_depth_window: 16
+  gradcam_slice_only: true

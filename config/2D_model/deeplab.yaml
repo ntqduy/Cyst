@@ -1,0 +1,33 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_2d_deeplab
+
+model:
+  name: deeplab
+  type: 2D
+  # Co the doi: resnet50, resnet101, resnet152, mobi.
+  backbone: resnet152
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+    # true: dung/tai ImageNet pretrained; false: train tu dau.
+    pretrained_backbone: true
+    # Co the doi 8 hoac 16.
+    output_stride: 16
+    separable_conv: false
+
+training:
+  epochs: 60
+  batch_size: 8
+  image_size: [256, 256, 64]
+  loss: ce_dice
+
+k_fold:
+  enabled: false
+
+evaluation:
+  evaluate_2d_as_volume: true
+  batch_size: 1
+  slice_batch_size: 8
