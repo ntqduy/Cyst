@@ -31,7 +31,12 @@ training:
 
 k_fold:
   enabled: true
+  # Dung chung dung bo split voi cac experiment khac trong repo.
+  source_list: all_train.txt
   num_folds: 3
+  shuffle: true
+  seed: 42
+  reuse_existing: true
   run_parallel: true
   max_parallel_folds: 3
   parallel_single_gpu_per_fold: true
@@ -45,4 +50,3 @@ gpu:
 evaluation:
   batch_size_3d: 1
   compute_surface_metrics: true
-
