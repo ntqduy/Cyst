@@ -1,0 +1,48 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_3d_segmamba
+
+model:
+  name: segmamba
+  type: 3D
+  backbone: mamba_3d_encoder
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+  args_3d:
+    __replace__: true
+    depths: [2, 2, 2, 2]
+    feature_channels: [48, 96, 192, 384]
+    hidden_size: 768
+    drop_path_rate: 0.0
+    norm_name: instance
+    conv_block: true
+    res_block: true
+
+training:
+  epochs: 60
+  batch_size_3d: 1
+  # Kien truc goc co dinh nslices=[64,32,16,8] cho ROI 128^3.
+  image_size: [128, 128, 128]
+  loss: ce_dice
+  amp: true
+
+k_fold:
+  enabled: true
+  num_folds: 3
+  run_parallel: true
+  max_parallel_folds: 3
+  parallel_single_gpu_per_fold: true
+  parallel_gpu_ids: auto
+
+gpu:
+  use_cuda: true
+  ids: "0, 1, 2"
+  multi_gpu: true
+
+evaluation:
+  batch_size_3d: 1
+  compute_surface_metrics: true
+

@@ -27,6 +27,7 @@ _FIXED_BACKBONE_LABELS = {
     "residual_encoder",
     "vnet_encoder",
     "vit_encoder",
+    "transunet_encoder",
     "attention_unet_encoder",
     "recurrent_residual_unet_encoder",
     "nnunet2d_encoder",
@@ -36,6 +37,8 @@ _FIXED_BACKBONE_LABELS = {
     "unet3d_encoder",
     "vnet3d_encoder",
     "vit3d_encoder",
+    "swin_transformer_3d",
+    "mamba_3d_encoder",
     "nnunet3d_encoder",
     "mobile_style_2d3d_encoder",
     "mobi_style_3d_encoder",
@@ -160,7 +163,7 @@ def _instantiate_2d(name: str, backbone: str, in_channels: int, num_classes: int
         "unet3plus_hybrid_cgm",
         "unet_3_plus_hybrid_cgm",
     }
-    swin_unet_names = {"swin_unet", "swinunet", "swin-unet", "swin_unetr", "swinunetr"}
+    swin_unet_names = {"swin_unet", "swinunet", "swin-unet"}
     nnunet_names = {"nnunet", "nn_unet", "nnunet2d", "nn_unet2d"}
     deeplab_names = {"deeplab", "deeplabv3"}
     deeplab_plus_plus_names = {
@@ -199,6 +202,8 @@ def _instantiate_2d(name: str, backbone: str, in_channels: int, num_classes: int
         "residual_unet": ("networks.residual_unet", "ResidualUNet2D"),
         "vnet": ("networks.VNet", "VNet2D"),
         "unetr": ("networks.unetr", "UNETR2D"),
+        "transunet": ("networks.transunet", "TransUNet2D"),
+        "trans_unet": ("networks.transunet", "TransUNet2D"),
         "unet_resnet152": ("networks.Unet_restnet", "UNetResNet152"),
         "resnet152_unet": ("networks.Unet_restnet", "UNetResNet152"),
         "att_unet": ("networks.attention_unet", "AttentionUNet2D"),
@@ -221,8 +226,6 @@ def _instantiate_2d(name: str, backbone: str, in_channels: int, num_classes: int
         "swin_unet": ("networks.swin_unet", "SwinUNet2D"),
         "swinunet": ("networks.swin_unet", "SwinUNet2D"),
         "swin-unet": ("networks.swin_unet", "SwinUNet2D"),
-        "swin_unetr": ("networks.swin_unet", "SwinUNet2D"),
-        "swinunetr": ("networks.swin_unet", "SwinUNet2D"),
         "deeplab": ("networks.deeplab", "DeepLab2D"),
         "deeplabv3": ("networks.deeplab", "DeepLab2D"),
         "deeplab_plus_plus": ("networks.deeplab_plus_plus", "DeepLabPlusPlus2D"),
@@ -244,6 +247,8 @@ def _instantiate_2d(name: str, backbone: str, in_channels: int, num_classes: int
 
     kwargs = dict(model_args)
     if name == "unetr":
+        kwargs.setdefault("image_size", image_size[:2])
+    if name in {"transunet", "trans_unet"}:
         kwargs.setdefault("image_size", image_size[:2])
     if name in unet_names:
         kwargs.setdefault("backbone", _backbone_or_default(backbone, "unet_encoder"))
@@ -395,6 +400,24 @@ def _instantiate_3d(name: str, in_channels: int, num_classes: int, image_size, m
             kwargs["n_filters"] = kwargs.pop("base_channels")
         kwargs.setdefault("n_channels", in_channels)
         kwargs.setdefault("n_classes", num_classes)
+        kwargs = _filter_kwargs(cls, kwargs)
+        return cls(**kwargs)
+    if name in {"swin_unetr", "swinunetr", "swin-unetr"}:
+        module = importlib.import_module("networks.swin_unetr")
+        cls = getattr(module, "SwinUNETR3D")
+        kwargs = dict(model_args)
+        kwargs.setdefault("in_channels", in_channels)
+        kwargs.setdefault("num_classes", num_classes)
+        kwargs.setdefault("image_size", tuple(image_size[:3]))
+        kwargs = _filter_kwargs(cls, kwargs)
+        return cls(**kwargs)
+    if name in {"segmamba", "seg_mamba", "seg-mamba"}:
+        module = importlib.import_module("networks.segmamba")
+        cls = getattr(module, "SegMamba3D")
+        kwargs = dict(model_args)
+        kwargs.setdefault("in_channels", in_channels)
+        kwargs.setdefault("num_classes", num_classes)
+        kwargs.setdefault("image_size", tuple(image_size[:3]))
         kwargs = _filter_kwargs(cls, kwargs)
         return cls(**kwargs)
     if name in {"unet", "unet3d", "unet_3d"}:
@@ -578,7 +601,7 @@ def _instantiate_3d(name: str, in_channels: int, num_classes: int, image_size, m
         "Unsupported 3D model '{}'. Available: vnet, unet, unet3d, unetr, nnunet, nnunet3d, "
         "mini_unet3d, adaptive_kernel_moe, adaptive_kernel_softmoe, mobi_style_3d, "
         "mobi_style_3d_3_plus, mobi_style_3d_v3, full_unet3d, full_unet3d_3_plus, hybrid_3d_2d, "
-        "unet_3_plus_slice".format(name)
+        "unet_3_plus_slice, swin_unetr, segmamba".format(name)
     )
 
 
@@ -608,6 +631,12 @@ def _resolved_backbone_name(model_type: str, name: str, model: nn.Module, config
             "unet3d": "unet3d_encoder",
             "unet_3d": "unet3d_encoder",
             "unetr": "vit3d_encoder",
+            "swin_unetr": "swin_transformer_3d",
+            "swinunetr": "swin_transformer_3d",
+            "swin-unetr": "swin_transformer_3d",
+            "segmamba": "mamba_3d_encoder",
+            "seg_mamba": "mamba_3d_encoder",
+            "seg-mamba": "mamba_3d_encoder",
             "nnunet": "nnunet3d_encoder",
             "nn_unet": "nnunet3d_encoder",
             "nnunet3d": "nnunet3d_encoder",
@@ -674,6 +703,8 @@ def _resolved_backbone_name(model_type: str, name: str, model: nn.Module, config
         "residual_unet": "residual_encoder",
         "vnet": "vnet_encoder",
         "unetr": "vit_encoder",
+        "transunet": "transunet_encoder",
+        "trans_unet": "transunet_encoder",
         "att_unet": "attention_unet_encoder",
         "attention_unet": "attention_unet_encoder",
         "r2unet": "recurrent_residual_unet_encoder",
@@ -689,8 +720,6 @@ def _resolved_backbone_name(model_type: str, name: str, model: nn.Module, config
         "swin_unet": "swin_transformer",
         "swinunet": "swin_transformer",
         "swin-unet": "swin_transformer",
-        "swin_unetr": "swin_transformer",
-        "swinunetr": "swin_transformer",
         "nnunet": "nnunet2d_encoder",
         "nn_unet": "nnunet2d_encoder",
         "nnunet2d": "nnunet2d_encoder",

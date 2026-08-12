@@ -4,3 +4,6 @@ analysis_data/__pycache__/
 wheels_seg/
 pretrain/
 outputs/
+baseline/TransUnet/models/vit_checkpoint/imagenet21k/R50+ViT-B_16.npz
+visualization/fold_1/
+visualization/file/

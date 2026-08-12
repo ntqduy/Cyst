@@ -1,0 +1,48 @@
+extends: ../cyst.yaml
+
+project:
+  name: cyst_3d_swin_unetr
+
+model:
+  name: swin_unetr
+  type: 3D
+  backbone: swin_transformer_3d
+  in_channels: auto
+  num_classes: 2
+  args:
+    __replace__: true
+  args_3d:
+    __replace__: true
+    feature_size: 24
+    depths: [2, 2, 2, 2]
+    num_heads: [3, 6, 12, 24]
+    norm_name: instance
+    use_checkpoint: true
+    drop_rate: 0.0
+    attn_drop_rate: 0.0
+    dropout_path_rate: 0.0
+
+training:
+  epochs: 60
+  batch_size_3d: 1
+  # All dimensions must be divisible by 32 for Swin-UNETR.
+  image_size: [256, 256, 64]
+  loss: ce_dice
+  amp: true
+
+k_fold:
+  enabled: true
+  num_folds: 3
+  run_parallel: true
+  max_parallel_folds: 3
+  parallel_single_gpu_per_fold: true
+  parallel_gpu_ids: auto
+
+gpu:
+  use_cuda: true
+  ids: "0, 1, 2"
+  multi_gpu: true
+
+evaluation:
+  batch_size_3d: 1
+  compute_surface_metrics: true
