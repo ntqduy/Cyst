@@ -660,6 +660,11 @@ class CystVolumeDataset(Dataset):
             if self.volume_layout == "DHW":
                 image = np.moveaxis(image, self.depth_axis, 0)
                 label = np.moveaxis(label, self.depth_axis, 0)
+            if tuple(image.shape) != tuple(self.image_size) or tuple(label.shape) != tuple(self.image_size):
+                raise ValueError(
+                    f"3D resize failed for case {record.case_id}: expected {self.image_size}, "
+                    f"got image={tuple(image.shape)}, label={tuple(label.shape)}."
+                )
         if self.augment:
             image, label = self._augment(image, label)
         image = np.expand_dims(image, axis=0)
@@ -684,11 +689,20 @@ class CystVolumeDataset(Dataset):
 
 def _build_datasets_from_records(cfg: Mapping[str, Any], records: Mapping[str, Sequence[CystRecord]], augment_train: bool = True):
     model_type = str(get_nested(cfg, "model.type", "2D")).upper()
+    model_name = str(get_nested(cfg, "model.name", "")).lower().replace("-", "_")
     num_classes = int(get_nested(cfg, "model.num_classes", get_nested(cfg, "dataset.num_classes", 2)))
     binarize_masks = bool(get_nested(cfg, "dataset.binarize_masks", num_classes == 2))
     normalization = str(get_nested(cfg, "dataset.intensity_normalization", "foreground_zscore"))
     image_size = get_nested(cfg, "training.image_size", [256, 256])
-    preserve_depth = bool(get_nested(cfg, "training.preserve_depth", get_nested(cfg, "dataset.preserve_depth", False)))
+    raw_preserve_depth = get_nested(cfg, "training.preserve_depth", get_nested(cfg, "dataset.preserve_depth", False))
+    if isinstance(raw_preserve_depth, str):
+        preserve_depth = raw_preserve_depth.strip().lower() in {"1", "true", "yes", "on"}
+    else:
+        preserve_depth = bool(raw_preserve_depth)
+    # Swin-UNETR requires all three spatial dimensions to be divisible by 32.
+    # Never retain a source depth such as D=1 for this volumetric architecture.
+    if model_name in {"swin_unetr", "swinunetr"}:
+        preserve_depth = False
     if model_type == "2D" and len(image_size) < 2:
         raise ValueError("training.image_size must contain [height, width] for 2D models.")
     if model_type == "3D" and preserve_depth and len(image_size) < 2:
