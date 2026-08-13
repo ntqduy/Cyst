@@ -60,3 +60,9 @@ gpu:
 evaluation:
   batch_size_3d: 1
   compute_surface_metrics: true
+
+visualization:
+  # SegMamba downsample 3D nhieu tang; depth-1 khong hop le cho Grad-CAM.
+  gradcam_depth_window: 32
+  gradcam_slice_only: true
+  fail_on_gradcam_error: false
