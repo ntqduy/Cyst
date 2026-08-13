@@ -5,6 +5,7 @@ import csv
 import math
 import os
 import time
+from contextlib import nullcontext
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from multiprocessing import get_context
 from pathlib import Path
@@ -53,6 +54,29 @@ from .utils import (
     set_seed,
     setup_logger,
 )
+
+
+def _build_grad_scaler(enabled: bool):
+    """Create a CUDA GradScaler across old and new PyTorch AMP APIs."""
+    amp_namespace = getattr(torch, "amp", None)
+    scaler_cls = getattr(amp_namespace, "GradScaler", None)
+    if scaler_cls is not None:
+        try:
+            return scaler_cls("cuda", enabled=enabled)
+        except TypeError:
+            return scaler_cls(enabled=enabled)
+    return torch.cuda.amp.GradScaler(enabled=enabled)
+
+
+def _autocast_context(device: torch.device, enabled: bool):
+    if not enabled:
+        return nullcontext()
+    autocast = getattr(torch, "autocast", None)
+    if autocast is not None:
+        return autocast(device_type=device.type, enabled=True)
+    if device.type == "cuda":
+        return torch.cuda.amp.autocast(enabled=True)
+    return nullcontext()
 from .visualization import save_prediction_visuals
 
 
@@ -1412,7 +1436,7 @@ def _run_single(
     scheduler = build_scheduler(optimizer, train_cfg)
     criterion = SegmentationCriterion(cfg, num_classes=model_result.num_classes).to(device)
     amp_enabled = bool(get_nested(cfg, "training.amp", False)) and device.type == "cuda"
-    scaler = torch.amp.GradScaler("cuda", enabled=amp_enabled)
+    scaler = _build_grad_scaler(enabled=amp_enabled)
     show_progress = bool(get_nested(cfg, "training.show_progress", True))
 
     history: list[Dict[str, Any]] = []
@@ -2121,7 +2145,7 @@ def _train_one_epoch(
         slice_indices = _batch_slice_indices(batch, device)
         batch_items = int(image.shape[0])
         optimizer.zero_grad(set_to_none=True)
-        with torch.autocast(device_type=device.type, enabled=amp_enabled):
+        with _autocast_context(device, enabled=amp_enabled):
             model_output, encoder_features = _model_forward_for_loss(model, image, criterion, slice_indices=slice_indices)
             logits = extract_logits(model_output, num_classes=num_classes)
             loss = criterion(logits, label, encoder_features=encoder_features or None)
