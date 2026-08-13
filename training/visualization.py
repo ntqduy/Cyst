@@ -393,6 +393,11 @@ def _crop_gradcam_volume(
     if image.ndim != 5 or len(target_shape) != 3 or slice_index is None:
         return image, target_shape, slice_index
     window = int(get_nested(cfg, "visualization.gradcam_depth_window", 1))
+    model_name = str(get_nested(cfg, "model.name", "")).lower().replace("-", "_")
+    if model_name in {"swin_unetr", "swinunetr"}:
+        # Five patch/downsample stages require every input dimension to be a
+        # multiple of 32. A one-slice Grad-CAM crop cannot pass this network.
+        window = max(32, ((window + 31) // 32) * 32)
     if window <= 0:
         return image, target_shape, slice_index
 
@@ -499,12 +504,12 @@ def _compute_gradcam(
             RuntimeWarning,
         )
         return None
-    except RuntimeError as exc:
+    except (RuntimeError, ValueError) as exc:
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
         if bool(get_nested(cfg, "visualization.fail_on_gradcam_error", False)):
             raise
-        detail = "CUDA ran out of memory" if "out of memory" in str(exc).lower() else f"runtime error: {exc}"
+        detail = "CUDA ran out of memory" if "out of memory" in str(exc).lower() else f"runtime/shape error: {exc}"
         warnings.warn(
             f"Grad-CAM skipped because {detail}. "
             "Try adjusting visualization.gradcam_depth_window or setting visualization.save_diagnostics=false.",

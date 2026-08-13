@@ -57,3 +57,9 @@ gpu:
 evaluation:
   batch_size_3d: 1
   compute_surface_metrics: true
+
+visualization:
+  # Swin-UNETR downsamples 5 times; a depth-1 Grad-CAM window is invalid.
+  gradcam_depth_window: 32
+  gradcam_slice_only: true
+  fail_on_gradcam_error: false
