@@ -29,7 +29,15 @@ training:
   # Kien truc goc co dinh nslices=[64,32,16,8] cho ROI 128^3.
   image_size: [128, 128, 128]
   loss: ce_dice
-  amp: true
+  # Mamba selective-scan CUDA kernel nay khong on dinh voi FP16: logits co the
+  # tran thanh NaN/Inf sau mot so batch. Train FP32 de tranh non-finite loss.
+  amp: false
+  lr: 0.0001
+  grad_clip_norm: 1.0
+  # Moi fold da chay trong mot process rieng; tat pin-memory de tranh thread
+  # ConnectionResetError phu khi mot worker dung.
+  pin_memory: false
+  num_workers: 2
 
 k_fold:
   enabled: true
