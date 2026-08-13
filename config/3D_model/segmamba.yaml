@@ -24,6 +24,8 @@ model:
 training:
   epochs: 60
   batch_size_3d: 1
+  # Resize ca 3 chieu ve ROI 128^3, khong giu depth goc.
+  preserve_depth: false
   # Kien truc goc co dinh nslices=[64,32,16,8] cho ROI 128^3.
   image_size: [128, 128, 128]
   loss: ce_dice

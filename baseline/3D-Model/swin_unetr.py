@@ -111,4 +111,12 @@ class SwinUNETR3D(nn.Module):
                 logger.info("Loaded Swin-UNETR pretrained checkpoint: %s", checkpoint_path)
 
     def forward(self, image):
+        spatial_shape = tuple(int(value) for value in image.shape[2:])
+        invalid = [value for value in spatial_shape if value % 32 != 0]
+        if len(spatial_shape) != 3 or invalid:
+            raise ValueError(
+                "SwinUNETR3D expects [B,C,H,W,D] with every spatial dimension divisible "
+                f"by 32, got {tuple(image.shape)}. Set training.preserve_depth=false and "
+                "training.image_size=[256,256,64]."
+            )
         return self.model(image)

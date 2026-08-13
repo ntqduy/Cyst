@@ -29,6 +29,8 @@ model:
 training:
   epochs: 60
   batch_size_3d: 1
+  # Resize ca 3 chieu; khong giu depth goc (mot so case co depth=1).
+  preserve_depth: false
   # All dimensions must be divisible by 32 for Swin-UNETR.
   image_size: [256, 256, 64]
   loss: ce_dice
