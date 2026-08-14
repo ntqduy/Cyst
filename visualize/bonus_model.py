@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import csv
 import math
+import os
 import shutil
 import sys
 from dataclasses import dataclass
@@ -266,6 +267,10 @@ def _save_model_assets(
 
 def main() -> None:
     args = parse_args()
+    # Checkpoint configs store dataset.root and split files as project-relative
+    # paths (for example data/all_train.txt). Make them independent of the
+    # directory from which this script is launched.
+    os.chdir(PROJECT_ROOT)
     fold_dir = args.fold_dir.resolve()
     manifests = sorted(fold_dir.glob("selected_visual_assets_*.csv"))
     if not manifests:
