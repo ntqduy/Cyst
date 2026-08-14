@@ -11,6 +11,7 @@ from typing import Any, Mapping
 
 import numpy as np
 import torch
+import nibabel as nib
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -165,6 +166,29 @@ def _result_as_dhw(result: viz.InferenceResult, cfg: Mapping[str, Any]) -> viz.I
     )
 
 
+def _source_depth(sample: Mapping[str, Any], cfg: Mapping[str, Any]) -> int | None:
+    single = viz._as_single_sample(sample)
+    image_path = Path(viz._text_value(single.get("image_path", "")))
+    if not image_path.is_absolute():
+        image_path = PROJECT_ROOT / image_path
+    if not image_path.is_file():
+        return None
+    shape = nib.load(str(image_path)).shape
+    depth_axis = int(viz.get_nested(cfg, "training.depth_axis", viz.get_nested(cfg, "slice_2d.axis", 2)))
+    if depth_axis < 0 or depth_axis >= len(shape):
+        return None
+    return int(shape[depth_axis])
+
+
+def _scale_depth_index(reference_index: int, reference_depth: int | None, model_depth: int) -> int:
+    if model_depth <= 1:
+        return 0
+    if reference_depth is None or reference_depth <= 1:
+        return int(np.clip(reference_index, 0, model_depth - 1))
+    ratio = float(np.clip(reference_index, 0, reference_depth - 1)) / float(reference_depth - 1)
+    return int(round(ratio * float(model_depth - 1)))
+
+
 def _save_model_assets(
     model_spec: BonusModel,
     built: viz.BuiltModel,
@@ -186,15 +210,19 @@ def _save_model_assets(
         result = _result_as_dhw(result, built.cfg)
         view = str(reference.get("view", "slice") or "slice")
         rank = int(float(reference.get("rank", 0) or 0))
-        z_index = int(float(reference.get("slice_index", -1) or -1))
-        if z_index < 0 or z_index >= int(result.gt.shape[0]):
-            z_index = viz._best_slice_index(result.gt, ours_pred=result.pred)
+        reference_z = int(float(reference.get("slice_index", -1) or -1))
+        raw_depth = _source_depth(samples[sample_id], built.cfg)
+        if reference_z < 0:
+            model_z = viz._best_slice_index(result.gt, ours_pred=result.pred)
+            reference_z = model_z
+        else:
+            model_z = _scale_depth_index(reference_z, raw_depth, int(result.gt.shape[0]))
 
         image_volume = viz._normalise_display(viz._resize_image_to_shape(result.image, result.gt.shape))
         prediction = viz._resize_mask_to_shape(result.pred, result.gt.shape)
-        filename = _manifest_filename(reference, view, sample_id, rank, z_index)
-        image_slice, gt_slice = viz._display_plane(image_volume, result.gt > 0, z_index, sample_id, rank - 1, view)
-        _, pred_slice = viz._display_plane(image_volume, prediction > 0, z_index, sample_id, rank - 1, view)
+        filename = _manifest_filename(reference, view, sample_id, rank, reference_z)
+        image_slice, gt_slice = viz._display_plane(image_volume, result.gt > 0, model_z, sample_id, rank - 1, view)
+        _, pred_slice = viz._display_plane(image_volume, prediction > 0, model_z, sample_id, rank - 1, view)
 
         img_path = model_dir / "img" / filename
         gt_path = model_dir / "gt" / filename
@@ -205,7 +233,7 @@ def _save_model_assets(
         viz._save_gray_png(plt, pred_path, pred_slice)
         metrics = viz.compute_sample_metrics(prediction, result.gt)
         title = (
-            f"{model_spec.display_name} | {sample_id} | {viz._view_text(view, z_index)} | "
+            f"{model_spec.display_name} | {sample_id} | ref_z={reference_z} model_z={model_z} | "
             f"Dice={metrics['dice']:.4f} IoU={metrics['iou']:.4f}"
         )
         viz._save_panel_png(plt, panel_path, image_slice, gt_slice, pred_slice, title)
@@ -217,7 +245,7 @@ def _save_model_assets(
                 "rank": rank,
                 "sample_id": sample_id,
                 "source": result.source,
-                "slice_index": z_index,
+                "slice_index": reference_z,
                 "model_name": model_spec.display_name,
                 "dice": metrics["dice"],
                 "iou": metrics["iou"],
@@ -228,7 +256,11 @@ def _save_model_assets(
                 "panel_path": str(panel_path),
             }
         )
-        print(f"[{model_spec.display_name}] sample={sample_id} slice={z_index} saved={pred_path}")
+        print(
+            f"[{model_spec.display_name}] sample={sample_id} ref_z={reference_z}/{raw_depth} "
+            f"model_z={model_z}/{result.gt.shape[0]} pred_volume={int(prediction.sum())} "
+            f"pred_slice={int(np.asarray(pred_slice).sum())} saved={pred_path}"
+        )
     return output_rows
 
 
