@@ -13,7 +13,7 @@ DEFAULT_INPUT_DIR = ROOT / "fold_1"
 DEFAULT_OUTPUT_DIR = ROOT / "file"
 
 SAMPLE_FILES = [
-    #"01_NU28_slice_z013.png",
+    "01_NU28_slice_z013.png",
     "03_NYU0064_slice_z012.png",
     "06_MCF27_slice_z020.png",
     "07_MCF05_slice_z020.png",
@@ -222,7 +222,7 @@ def find_shared_asset(input_dir: Path, kind: str, filename: str) -> Path | None:
 
 def find_shared_image_and_gt(input_dir: Path, filename: str) -> tuple[Path | None, Path | None]:
     """Find an image/GT pair from the same architecture directory."""
-    for model_name in ["Ours", "Unet3+", "Unet2D", "Unet++", "Unet3D", "nnUnet", "SegMamba", "Swin  UNETR", "Fusion_Late"]:
+    for model_name in ["Ours", "Unet3+", "Unet2D", "Unet++", "Unet3D", "nnUnet", "SegMamba", "Swin UNETR", "Fusion_Late"]:
         image_path = find_model_asset(input_dir, model_name, "image", filename)
         gt_path = find_model_asset(input_dir, model_name, "gt", filename)
         if image_path is not None and gt_path is not None:
@@ -303,6 +303,11 @@ def draw_layout(input_dir: Path, output_path: Path, columns: list[str], alpha: f
             panel_path = find_model_asset(input_dir, column, "panel", filename)
             image = rotate_for_file(read_image(model_image_path), filename) if model_image_path is not None else shared_image
             pred_mask = rotate_for_file(read_mask(pred_path), filename) if pred_path is not None else None
+            pred_pixels = int(np.count_nonzero(pred_mask)) if pred_mask is not None else 0
+            print(
+                f"[PRED] model={column} file={filename} path={pred_path} "
+                f"positive_pixels={pred_pixels}"
+            )
 
             if image is None and panel_path is not None:
                 image = rotate_for_file(read_image(panel_path), filename)

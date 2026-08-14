@@ -79,8 +79,11 @@ def _atomic_upsert_csv(
     if not backup.exists():
         shutil.copy2(path, backup)
 
+    def canonical_model_name(value: Any) -> str:
+        return str(value).strip().lower().replace("-", "_").replace(" ", "_")
+
     def is_replaced(row: Mapping[str, Any]) -> bool:
-        return str(row.get("model_name", "")).strip().lower().replace("-", "_") in replaced_names
+        return canonical_model_name(row.get("model_name", "")) in replaced_names
 
     kept_rows = [row for row in old_rows if not is_replaced(row)]
     fields = list(old_fields)
@@ -194,6 +197,37 @@ def _existing_asset(reference: Mapping[str, Any], field: str) -> np.ndarray | No
     return np.asarray(Image.open(path).convert("L"), dtype=np.float32) / 255.0
 
 
+def _match_reference_gt_slice(
+    gt_volume: np.ndarray,
+    reference_gt: np.ndarray | None,
+    expected_z: int,
+    sample_id: str,
+    sample_index: int,
+) -> tuple[int, float]:
+    """Find the resized 3D slice that produced the already-exported GT PNG."""
+    if reference_gt is None or not np.asarray(reference_gt).astype(bool).any():
+        return expected_z, math.nan
+    target = np.asarray(reference_gt).astype(bool)
+    best_z = expected_z
+    best_score = -1.0
+    target_pixels = int(target.sum())
+    for z_index in range(int(gt_volume.shape[0])):
+        candidate = viz._orient_display_slice(
+            np.asarray(gt_volume)[z_index] > 0,
+            sample_id=sample_id,
+            sample_index=sample_index,
+        )
+        candidate = viz._resize_mask_to_shape(candidate, target.shape)
+        intersection = int(np.logical_and(candidate, target).sum())
+        denominator = int(candidate.sum()) + target_pixels
+        score = (2.0 * intersection / denominator) if denominator else 1.0
+        # Prefer the proportional depth estimate when multiple slices tie.
+        if score > best_score or (score == best_score and abs(z_index - expected_z) < abs(best_z - expected_z)):
+            best_z = z_index
+            best_score = score
+    return best_z, best_score
+
+
 def _save_model_assets(
     model_spec: BonusModel,
     built: viz.BuiltModel,
@@ -217,11 +251,24 @@ def _save_model_assets(
         view = str(reference.get("view", "slice") or "slice")
         rank = int(float(reference.get("rank", 0) or 0))
         reference_z = int(float(reference.get("slice_index", -1) or -1))
+        reference_image = _existing_asset(reference, "img_path")
+        reference_gt = _existing_asset(reference, "gt_path")
         if reference_z < 0:
             model_z = viz._best_slice_index(result.gt, ours_pred=result.pred)
             reference_z = model_z
+            gt_match = math.nan
         else:
-            model_z = _scale_depth_index(reference_z, reference_depth, int(result.gt.shape[0]))
+            expected_z = _scale_depth_index(reference_z, reference_depth, int(result.gt.shape[0]))
+            if view == "slice":
+                model_z, gt_match = _match_reference_gt_slice(
+                    result.gt,
+                    reference_gt,
+                    expected_z,
+                    sample_id,
+                    rank - 1,
+                )
+            else:
+                model_z, gt_match = expected_z, math.nan
 
         image_volume = viz._normalise_display(viz._resize_image_to_shape(result.image, result.gt.shape))
         prediction = viz._resize_mask_to_shape(result.pred, result.gt.shape)
@@ -230,8 +277,6 @@ def _save_model_assets(
         _, pred_slice = viz._display_plane(image_volume, prediction > 0, model_z, sample_id, rank - 1, view)
         # Reuse the exact background/GT exported for the previous architectures
         # so every PDF column has identical orientation and pixel dimensions.
-        reference_image = _existing_asset(reference, "img_path")
-        reference_gt = _existing_asset(reference, "gt_path")
         if reference_image is not None:
             image_slice = reference_image
         if reference_gt is not None:
@@ -272,9 +317,20 @@ def _save_model_assets(
         )
         print(
             f"[{model_spec.display_name}] sample={sample_id} ref_z={reference_z}/{reference_depth} "
-            f"model_z={model_z}/{result.gt.shape[0]} pred_volume={int(prediction.sum())} "
+            f"model_z={model_z}/{result.gt.shape[0]} gt_match={gt_match:.4f} "
+            f"gt_volume={int(np.asarray(result.gt).sum())} pred_volume={int(prediction.sum())} "
             f"pred_slice={int(np.asarray(pred_slice).sum())} saved={pred_path}"
         )
+        if not np.asarray(prediction).any():
+            print(
+                f"WARNING: [{model_spec.display_name}] {sample_id}: prediction is empty for the entire volume. "
+                "The PNG writer is working; inspect checkpoint quality/configuration."
+            )
+        elif view == "slice" and not np.asarray(pred_slice).any():
+            print(
+                f"WARNING: [{model_spec.display_name}] {sample_id}: volume has foreground but the selected "
+                f"slice model_z={model_z} is empty. This is a model prediction result, not a missing PNG."
+            )
     return output_rows
 
 
@@ -334,7 +390,7 @@ def main() -> None:
                 torch.cuda.empty_cache()
 
         replacement_names = {
-            str(row.get("model_name", "")).strip().lower().replace("-", "_")
+            str(row.get("model_name", "")).strip().lower().replace("-", "_").replace(" ", "_")
             for row in rows_to_add
         }
         _atomic_upsert_csv(manifest, rows_to_add, replacement_names)
