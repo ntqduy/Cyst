@@ -12,7 +12,7 @@ from typing import Any, Mapping
 
 import numpy as np
 import torch
-import nibabel as nib
+from PIL import Image
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -53,6 +53,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--swin-unetr-checkpoint", type=Path, default=DEFAULT_SWIN_UNETR_CHECKPOINT)
     parser.add_argument("--gpu", type=int, default=0)
     parser.add_argument("--num-workers", type=int, default=0)
+    parser.add_argument(
+        "--reference-depth",
+        type=int,
+        default=64,
+        help="Depth coordinate used by existing Proposal visualization manifests.",
+    )
     parser.add_argument("--skip-missing-checkpoint", action="store_true")
     return parser.parse_args()
 
@@ -167,20 +173,6 @@ def _result_as_dhw(result: viz.InferenceResult, cfg: Mapping[str, Any]) -> viz.I
     )
 
 
-def _source_depth(sample: Mapping[str, Any], cfg: Mapping[str, Any]) -> int | None:
-    single = viz._as_single_sample(sample)
-    image_path = Path(viz._text_value(single.get("image_path", "")))
-    if not image_path.is_absolute():
-        image_path = PROJECT_ROOT / image_path
-    if not image_path.is_file():
-        return None
-    shape = nib.load(str(image_path)).shape
-    depth_axis = int(viz.get_nested(cfg, "training.depth_axis", viz.get_nested(cfg, "slice_2d.axis", 2)))
-    if depth_axis < 0 or depth_axis >= len(shape):
-        return None
-    return int(shape[depth_axis])
-
-
 def _scale_depth_index(reference_index: int, reference_depth: int | None, model_depth: int) -> int:
     if model_depth <= 1:
         return 0
@@ -190,6 +182,18 @@ def _scale_depth_index(reference_index: int, reference_depth: int | None, model_
     return int(round(ratio * float(model_depth - 1)))
 
 
+def _existing_asset(reference: Mapping[str, Any], field: str) -> np.ndarray | None:
+    value = str(reference.get(field, "")).strip()
+    if not value:
+        return None
+    path = Path(value)
+    if not path.is_absolute():
+        path = PROJECT_ROOT / path
+    if not path.is_file():
+        return None
+    return np.asarray(Image.open(path).convert("L"), dtype=np.float32) / 255.0
+
+
 def _save_model_assets(
     model_spec: BonusModel,
     built: viz.BuiltModel,
@@ -197,6 +201,7 @@ def _save_model_assets(
     references: list[Mapping[str, Any]],
     fold_dir: Path,
     device: torch.device,
+    reference_depth: int,
 ) -> list[dict[str, Any]]:
     import matplotlib
 
@@ -212,18 +217,26 @@ def _save_model_assets(
         view = str(reference.get("view", "slice") or "slice")
         rank = int(float(reference.get("rank", 0) or 0))
         reference_z = int(float(reference.get("slice_index", -1) or -1))
-        raw_depth = _source_depth(samples[sample_id], built.cfg)
         if reference_z < 0:
             model_z = viz._best_slice_index(result.gt, ours_pred=result.pred)
             reference_z = model_z
         else:
-            model_z = _scale_depth_index(reference_z, raw_depth, int(result.gt.shape[0]))
+            model_z = _scale_depth_index(reference_z, reference_depth, int(result.gt.shape[0]))
 
         image_volume = viz._normalise_display(viz._resize_image_to_shape(result.image, result.gt.shape))
         prediction = viz._resize_mask_to_shape(result.pred, result.gt.shape)
         filename = _manifest_filename(reference, view, sample_id, rank, reference_z)
         image_slice, gt_slice = viz._display_plane(image_volume, result.gt > 0, model_z, sample_id, rank - 1, view)
         _, pred_slice = viz._display_plane(image_volume, prediction > 0, model_z, sample_id, rank - 1, view)
+        # Reuse the exact background/GT exported for the previous architectures
+        # so every PDF column has identical orientation and pixel dimensions.
+        reference_image = _existing_asset(reference, "img_path")
+        reference_gt = _existing_asset(reference, "gt_path")
+        if reference_image is not None:
+            image_slice = reference_image
+        if reference_gt is not None:
+            gt_slice = reference_gt > 0
+        pred_slice = viz._resize_mask_to_shape(np.asarray(pred_slice) > 0, image_slice.shape[:2])
 
         img_path = model_dir / "img" / filename
         gt_path = model_dir / "gt" / filename
@@ -258,7 +271,7 @@ def _save_model_assets(
             }
         )
         print(
-            f"[{model_spec.display_name}] sample={sample_id} ref_z={reference_z}/{raw_depth} "
+            f"[{model_spec.display_name}] sample={sample_id} ref_z={reference_z}/{reference_depth} "
             f"model_z={model_z}/{result.gt.shape[0]} pred_volume={int(prediction.sum())} "
             f"pred_slice={int(np.asarray(pred_slice).sum())} saved={pred_path}"
         )
@@ -305,7 +318,17 @@ def main() -> None:
                 sample_ids,
                 int(args.num_workers),
             )
-            rows_to_add.extend(_save_model_assets(spec, built, samples, references, fold_dir, device))
+            rows_to_add.extend(
+                _save_model_assets(
+                    spec,
+                    built,
+                    samples,
+                    references,
+                    fold_dir,
+                    device,
+                    reference_depth=int(args.reference_depth),
+                )
+            )
             del built
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
