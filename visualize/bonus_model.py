@@ -26,7 +26,7 @@ DEFAULT_SEGMAMBA_CHECKPOINT = Path(
     "outputs/segmamba/default/fold_01/checkpoint/best.pth"
 )
 DEFAULT_SWIN_UNETR_CHECKPOINT = Path(
-    "outputs/swin_unetr/default/fold_01/checkpoint/last.pth"
+    "outputs/swin_unetr/default/fold_01/checkpoint/best.pth"
 )
 
 
