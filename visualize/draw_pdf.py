@@ -58,7 +58,7 @@ LAYOUTS = {
         "Unet3D",
         "nnUnet",
         "SegMamba",
-        "Swin_UNETR",
+        "Swin UNETR",
         "Ours",
     ],
     "file_2_with_fusion_late.pdf": [
@@ -69,7 +69,7 @@ LAYOUTS = {
         "Unet3D",
         "nnUnet",
         "SegMamba",
-        "Swin_UNETR",
+        "Swin UNETR",
         "Fusion_Late",
         "Ours",
     ],
@@ -82,7 +82,7 @@ MODEL_ALIASES = {
     "Unet3D": ["Unet3D", "UNet3D", "Unet_3D", "UNet_3D"],
     "nnUnet": ["nnUnet", "nnUNet", "nnunet", "nn_unet"],
     "SegMamba": ["SegMamba", "segmamba", "Seg_Mamba", "seg_mamba"],
-    "Swin_UNETR": ["Swin_UNETR", "SwinUNETR", "swin_unetr", "swin-unetr", "Swin UNETR"],
+    "Swin UNETR": ["Swin_UNETR", "SwinUNETR", "swin_unetr", "swin-unetr", "Swin UNETR"],
     "Fusion_Late": ["Fusion_Late", "FusionLate", "Fusion Late"],
     "Ours": ["Ours", "ours"],
 }
@@ -213,7 +213,7 @@ def find_model_asset(input_dir: Path, model_name: str, kind: str, filename: str)
 
 
 def find_shared_asset(input_dir: Path, kind: str, filename: str) -> Path | None:
-    for model_name in ["Ours", "Unet3+", "Unet2D", "Unet++", "Unet3D", "nnUnet", "SegMamba", "Swin_UNETR", "Fusion_Late"]:
+    for model_name in ["Ours", "Unet3+", "Unet2D", "Unet++", "Unet3D", "nnUnet", "SegMamba", "Swin UNETR", "Fusion_Late"]:
         found = find_model_asset(input_dir, model_name, kind, filename)
         if found is not None:
             return found
@@ -222,7 +222,7 @@ def find_shared_asset(input_dir: Path, kind: str, filename: str) -> Path | None:
 
 def find_shared_image_and_gt(input_dir: Path, filename: str) -> tuple[Path | None, Path | None]:
     """Find an image/GT pair from the same architecture directory."""
-    for model_name in ["Ours", "Unet3+", "Unet2D", "Unet++", "Unet3D", "nnUnet", "SegMamba", "Swin_UNETR", "Fusion_Late"]:
+    for model_name in ["Ours", "Unet3+", "Unet2D", "Unet++", "Unet3D", "nnUnet", "SegMamba", "Swin  UNETR", "Fusion_Late"]:
         image_path = find_model_asset(input_dir, model_name, "image", filename)
         gt_path = find_model_asset(input_dir, model_name, "gt", filename)
         if image_path is not None and gt_path is not None:
