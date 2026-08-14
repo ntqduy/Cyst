@@ -541,7 +541,10 @@ def validate_checkpoint_config(model_config: ModelConfig, cfg: Mapping[str, Any]
     errors: list[str] = []
     actual_stage = str(get_nested(cfg, "experiment.stage", "")).lower()
     expected_stage = str(model_config.stage).lower()
-    if actual_stage != expected_stage:
+    # Standalone baseline checkpoints (for example SegMamba/Swin-UNETR) do
+    # not use Proposal's experiment.stage field. An empty requested stage
+    # means "do not constrain stage", while model.type is still validated.
+    if expected_stage and actual_stage != expected_stage:
         errors.append(f"experiment.stage: expected {expected_stage!r}, got {actual_stage!r}")
 
     actual_model_type = str(get_nested(cfg, "model.type", "")).upper()

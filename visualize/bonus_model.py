@@ -136,7 +136,10 @@ def _load_selected_samples(built: viz.BuiltModel, fold_index: int, split: str, s
 
 
 def _build(checkpoint: Path, display_name: str, device: torch.device) -> viz.BuiltModel:
-    fallback = viz.ModelConfig(name=display_name, stage="train_3d", checkpoint_dir=checkpoint.parent)
+    # SegMamba/Swin-UNETR are standalone baseline experiments. Their saved
+    # configs correctly declare model.type=3D but do not use Proposal's
+    # experiment.stage field, so stage validation must remain unset here.
+    fallback = viz.ModelConfig(name=display_name, stage="", checkpoint_dir=checkpoint.parent)
     return viz.build_model_by_name(display_name, checkpoint, device, fallback_config=fallback)
 
 
